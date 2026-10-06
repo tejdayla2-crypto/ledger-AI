@@ -22,18 +22,27 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     api.get('/auth/me')
       .then(res => setUser(res.data.user))
-      .catch(() => setUser(null))
+      .catch(() => {
+        localStorage.removeItem('ledger_token');
+        setUser(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const login = useCallback(async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
+    if (res.data.token) {
+      localStorage.setItem('ledger_token', res.data.token);
+    }
     setUser(res.data.user);
     return res.data;
   }, []);
 
   const signup = useCallback(async (email, password) => {
     const res = await api.post('/auth/signup', { email, password });
+    if (res.data.token) {
+      localStorage.setItem('ledger_token', res.data.token);
+    }
     setUser(res.data.user);
     return res.data;
   }, []);
@@ -42,6 +51,9 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = useCallback(async () => {
     const { idToken } = await firebaseLoginWithGoogle();
     const res = await api.post('/auth/firebase-login', { idToken });
+    if (res.data.token) {
+      localStorage.setItem('ledger_token', res.data.token);
+    }
     setUser(res.data.user);
     return res.data;
   }, []);
@@ -50,6 +62,9 @@ export function AuthProvider({ children }) {
   const loginWithFirebase = useCallback(async (email, password) => {
     const { idToken } = await firebaseLoginWithEmail(email, password);
     const res = await api.post('/auth/firebase-login', { idToken });
+    if (res.data.token) {
+      localStorage.setItem('ledger_token', res.data.token);
+    }
     setUser(res.data.user);
     return res.data;
   }, []);
@@ -58,6 +73,9 @@ export function AuthProvider({ children }) {
   const signupWithFirebase = useCallback(async (email, password) => {
     const { idToken } = await signupWithFirebaseEmail(email, password);
     const res = await api.post('/auth/firebase-login', { idToken });
+    if (res.data.token) {
+      localStorage.setItem('ledger_token', res.data.token);
+    }
     setUser(res.data.user);
     return res.data;
   }, []);
@@ -73,6 +91,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.warn('Firebase logout warning:', err);
     }
+    localStorage.removeItem('ledger_token');
     setUser(null);
   }, []);
 

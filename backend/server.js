@@ -30,7 +30,7 @@ function validateEnvironment() {
   }
 
   if (process.env.NODE_ENV === 'production' && !process.env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is required in production.');
+    console.warn('WARNING: GEMINI_API_KEY is not set. AI expense chat will be disabled until you add it.');
   }
 }
 
@@ -58,18 +58,30 @@ const { startRecurringJob } = require('./jobs/recurring');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const allowedOrigins = process.env.FRONTEND_URL.split(',').map(origin => origin.trim()).filter(Boolean);
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map(origin => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 15, standardHeaders: 'draft-8', legacyHeaders: false });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false });
 const chatLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false });
 const importLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false });
 
 // ── MIDDLEWARE ──
-// CORS: allows the React frontend (port 5173) to talk to this server
+// CORS: allows the React frontend (port 5173 or Vercel) to talk to this server
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Origin is not allowed by CORS.'));
+    if (!origin) return callback(null, true);
+    const cleanOrigin = origin.replace(/\/+$/, '');
+    if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    // Allow vercel.app domains from our deployment
+    if (cleanOrigin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
   },
   credentials: true // Required for cookies to work cross-origin
 }));

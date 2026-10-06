@@ -4,18 +4,38 @@
 
 import axios from 'axios';
 
+function getBaseUrl() {
+  const envUrl = (import.meta.env.VITE_API_URL || '').trim();
+  if (!envUrl) return '/api';
+  const cleanUrl = envUrl.replace(/\/+$/, '');
+  return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: getBaseUrl(),
   withCredentials: true,    // Sends cookies (JWT token) with every request
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' }
 });
+
+// Request interceptor: attach Bearer token from localStorage for reliable cross-domain requests
+api.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('ledger_token');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => Promise.reject(error)
+);
 
 // Response interceptor: if the server returns 401 (unauthorized), redirect to login
 api.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401) {
+      localStorage.removeItem('ledger_token');
       // Don't redirect if we're already on auth pages
       if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/signup')) {
         window.location.href = '/login';

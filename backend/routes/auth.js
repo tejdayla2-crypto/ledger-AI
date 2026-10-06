@@ -19,13 +19,17 @@ function sendAuthToken(res, user) {
     { expiresIn: '7d' } // token lasts 7 days
   );
 
-  // httpOnly = JavaScript in the browser CANNOT read this cookie (security!)
+  const isProduction = process.env.NODE_ENV === 'production';
+  // httpOnly = JavaScript in the browser CANNOT read this cookie directly
+  // In production (cross-domain Vercel frontend -> Render backend), sameSite: 'none' and secure: true are required
   res.cookie('ledger_token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
   });
+
+  return token;
 }
 
 // POST /api/auth/signup
@@ -60,9 +64,9 @@ router.post('/signup', async (req, res) => {
     );
 
     const user = { id: userId, email: email.toLowerCase() };
-    sendAuthToken(res, user);
+    const token = sendAuthToken(res, user);
 
-    res.json({ user: { id: userId, email: email.toLowerCase() }, isNewUser: true });
+    res.json({ user: { id: userId, email: email.toLowerCase() }, token, isNewUser: true });
   } catch (err) {
     console.error('Signup error:', err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
@@ -91,8 +95,8 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    sendAuthToken(res, user);
-    res.json({ user: { id: user.id, email: user.email } });
+    const token = sendAuthToken(res, user);
+    res.json({ user: { id: user.id, email: user.email }, token });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
@@ -101,7 +105,12 @@ router.post('/login', async (req, res) => {
 
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('ledger_token');
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.clearCookie('ledger_token', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax'
+  });
   res.json({ message: 'Logged out successfully.' });
 });
 
@@ -155,9 +164,10 @@ router.post('/firebase-login', async (req, res) => {
       }
     }
 
-    sendAuthToken(res, user);
+    const token = sendAuthToken(res, user);
     res.json({
       user: { id: user.id, email: user.email, currency: user.currency || 'INR' },
+      token,
       isNewUser
     });
   } catch (err) {
