@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Environment files (contain secrets)
+.env
+.env.*
+!.env.example
+
+# Firebase secrets
+firebase-service-account.json
+
+# Database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Build output
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.sw?
+
+# Zip archives (original uploads)
+*.zip

@@ -1,0 +1,8 @@
+node_modules/
+.env
+firebase-service-account.json
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.DS_Store

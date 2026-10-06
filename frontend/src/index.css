@@ -1,0 +1,292 @@
+/* src/index.css */
+/* ══════════════════════════════════════════════
+   LEDGER — Global Design System
+   
+   Design philosophy:
+   - Warm, trustworthy palette (deep forest green + warm paper white)
+   - Serif headings (Playfair Display) for a "ledger book" feel
+   - Monospace numbers (JetBrains Mono) for receipts/amounts
+   - ONE signature motif: dotted leader lines between labels and values
+   - Motion only on data changes, never ambient decoration
+   ══════════════════════════════════════════════ */
+
+/* ── CSS Custom Properties (Design Tokens) ── */
+:root {
+  /* Colors */
+  --ink:        #1C1917;   /* warm near-black for text */
+  --ink-muted:  #57534E;   /* secondary text */
+  --ink-faint:  #A8A29E;   /* placeholder, disabled */
+  --paper:      #FAFAF7;   /* page background */
+  --paper-warm: #F5F2EC;   /* slightly darker warm bg */
+  --ledger:     #2D4A3E;   /* primary brand — deep forest green */
+  --ledger-lt:  #4A7C66;   /* lighter green, hover/active */
+  --ledger-dim: #1A2E26;   /* darker green, pressed */
+  --ledger-tint:#EEF4F0;   /* very light green tint */
+  --coral:      #E76F51;
+  --coral-lt:   #FCEAE4;
+  --teal:       #287D7A;
+  --teal-lt:    #E4F3F1;
+  --amber:      #D97706;   /* budget warnings */
+  --amber-lt:   #FEF3C7;   /* amber background tint */
+  --rust:       #C0392B;   /* errors only — system failures */
+  --rust-lt:    #FEE2E2;   /* error background tint */
+  --mist:       #E8E4DC;   /* dividers, borders */
+  --mist-dark:  #D1CBC1;   /* stronger dividers */
+  --white:      #FFFFFF;
+  --shadow-sm:  0 1px 3px rgba(28,25,23,0.08), 0 1px 2px rgba(28,25,23,0.04);
+  --shadow-md:  0 4px 12px rgba(28,25,23,0.10), 0 2px 4px rgba(28,25,23,0.06);
+  --shadow-lg:  0 8px 24px rgba(28,25,23,0.12), 0 4px 8px rgba(28,25,23,0.06);
+
+  /* Category colors — applied as tints on amount figures */
+  --cat-food-bg:    #FEF3C7; --cat-food-text:    #92400E;
+  --cat-transport-bg: #DBEAFE; --cat-transport-text: #1E40AF;
+  --cat-entertainment-bg: #F3E8FF; --cat-entertainment-text: #6B21A8;
+  --cat-health-bg:  #D1FAE5; --cat-health-text:   #065F46;
+  --cat-shopping-bg:#FCE7F3; --cat-shopping-text: #9D174D;
+  --cat-utilities-bg:#E0F2FE;--cat-utilities-text:#075985;
+  --cat-education-bg:#FEF9C3;--cat-education-text:#713F12;
+  --cat-travel-bg:  #FFEDD5; --cat-travel-text:   #9A3412;
+  --cat-housing-bg: #F0FDF4; --cat-housing-text:  #14532D;
+  --cat-other-bg:   #F1F5F9; --cat-other-text:    #475569;
+
+  /* Typography */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Spacing */
+  --radius-sm: 4px;
+  --radius:    8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Typography ── */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+h1 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 700; }
+h2 { font-size: clamp(1.5rem, 3vw, 2.25rem); font-weight: 600; }
+h3 { font-size: 1.25rem; font-weight: 600; }
+h4 { font-size: 1rem; font-weight: 600; font-family: var(--font-body); }
+
+p { color: var(--ink-muted); }
+a { color: var(--ledger); text-decoration: none; }
+a:hover { color: var(--ledger-lt); }
+
+/* ── Amounts: always monospace ── */
+.amount, [data-amount] {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+/* ── Signature Motif: Dotted Leader Lines ──
+   Usage: <span class="leader-line"><span>Label</span><span class="amount">₹350</span></span>
+   Creates:  Label ·········· ₹350
+*/
+.leader-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+  width: 100%;
+}
+.leader-line > *:first-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.leader-line::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  border-bottom: 1.5px dotted var(--mist-dark);
+  margin: 0 0.5rem;
+  position: relative;
+  top: -3px;
+}
+.leader-line > *:last-child {
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+/* ── Category Color Utility Classes ── */
+.cat-food         { background: var(--cat-food-bg);         color: var(--cat-food-text); }
+.cat-transport    { background: var(--cat-transport-bg);    color: var(--cat-transport-text); }
+.cat-entertainment{ background: var(--cat-entertainment-bg);color: var(--cat-entertainment-text); }
+.cat-health       { background: var(--cat-health-bg);       color: var(--cat-health-text); }
+.cat-shopping     { background: var(--cat-shopping-bg);     color: var(--cat-shopping-text); }
+.cat-utilities    { background: var(--cat-utilities-bg);    color: var(--cat-utilities-text); }
+.cat-education    { background: var(--cat-education-bg);    color: var(--cat-education-text); }
+.cat-travel       { background: var(--cat-travel-bg);       color: var(--cat-travel-text); }
+.cat-housing      { background: var(--cat-housing-bg);      color: var(--cat-housing-text); }
+.cat-other        { background: var(--cat-other-bg);        color: var(--cat-other-text); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--ledger); outline-offset: 2px; }
+
+.btn-primary {
+  background: var(--ledger);
+  color: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover { background: var(--ledger-lt); box-shadow: 0 5px 14px rgba(45,74,62,0.18); transform: translateY(-1px); }
+.btn-primary:active { background: var(--ledger-dim); }
+
+.btn-secondary {
+  background: var(--paper-warm);
+  color: var(--ink);
+  border: 1px solid var(--mist-dark);
+}
+.btn-secondary:hover { background: var(--teal-lt); border-color: var(--teal); color: var(--teal); transform: translateY(-1px); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-muted);
+  padding: 0.4rem 0.75rem;
+}
+.btn-ghost:hover { background: var(--mist); color: var(--ink); }
+
+.btn-danger {
+  background: var(--rust-lt);
+  color: var(--rust);
+  border: 1px solid #FECACA;
+}
+.btn-danger:hover { background: #FEE2E2; }
+
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; }
+.btn-lg { padding: 0.85rem 1.75rem; font-size: 1rem; }
+.btn-icon { padding: 0.5rem; width: 2rem; height: 2rem; border-radius: var(--radius-sm); }
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ── Inputs ── */
+.input {
+  width: 100%;
+  padding: 0.65rem 0.9rem;
+  border: 1.5px solid var(--mist-dark);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--ink);
+  background: var(--white);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--ledger);
+  box-shadow: 0 0 0 3px rgba(45, 74, 62, 0.12);
+}
+.input::placeholder { color: var(--ink-faint); }
+.input.error { border-color: var(--rust); }
+
+/* ── Cards ── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--mist);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--mist-dark); }
+.card-body { padding: 1.25rem; }
+
+/* ── Dividers ── */
+.divider {
+  height: 1px;
+  background: var(--mist);
+  border: none;
+  margin: 0;
+}
+
+/* ── Badges / Tags ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* ── Agent thinking animation ── */
+.thinking {
+  font-style: italic;
+  color: var(--ink-muted);
+}
+.thinking::after {
+  content: '';
+  animation: dots 1.4s steps(4, end) infinite;
+}
+@keyframes dots {
+  0%, 20%  { content: ''; }
+  40%      { content: '.'; }
+  60%      { content: '..'; }
+  80%,100% { content: '...'; }
+}
+
+/* ── Slide-in animation for new transactions ── */
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.slide-in { animation: slideInRight 0.2s ease-out; }
+
+/* ── Fade in ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.25s ease-out; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--mist-dark); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+
+/* ── Responsive helpers ── */
+.hide-mobile { display: block; }
+@media (max-width: 768px) {
+  .hide-mobile { display: none; }
+  .show-mobile { display: block; }
+}
