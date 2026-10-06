@@ -57,16 +57,18 @@ const { startDigestJob } = require('./jobs/digest');
 const { startRecurringJob } = require('./jobs/recurring');
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Render / Vercel) for rate limiting and IP headers
+
 const PORT = process.env.PORT || 3001;
 const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
   .split(',')
   .map(origin => origin.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
-const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false });
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false });
-const chatLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false });
-const importLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false });
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
+const chatLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
+const importLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
 
 // ── MIDDLEWARE ──
 // CORS: allows the React frontend (port 5173 or Vercel) to talk to this server
