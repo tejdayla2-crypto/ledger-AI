@@ -22,10 +22,6 @@
   --ledger-lt:  #4A7C66;   /* lighter green, hover/active */
   --ledger-dim: #1A2E26;   /* darker green, pressed */
   --ledger-tint:#EEF4F0;   /* very light green tint */
-  --coral:      #E76F51;
-  --coral-lt:   #FCEAE4;
-  --teal:       #287D7A;
-  --teal-lt:    #E4F3F1;
   --amber:      #D97706;   /* budget warnings */
   --amber-lt:   #FEF3C7;   /* amber background tint */
   --rust:       #C0392B;   /* errors only — system failures */
@@ -167,7 +163,7 @@ a:hover { color: var(--ledger-lt); }
   color: var(--white);
   box-shadow: var(--shadow-sm);
 }
-.btn-primary:hover { background: var(--ledger-lt); box-shadow: 0 5px 14px rgba(45,74,62,0.18); transform: translateY(-1px); }
+.btn-primary:hover { background: var(--ledger-lt); }
 .btn-primary:active { background: var(--ledger-dim); }
 
 .btn-secondary {
@@ -175,7 +171,7 @@ a:hover { color: var(--ledger-lt); }
   color: var(--ink);
   border: 1px solid var(--mist-dark);
 }
-.btn-secondary:hover { background: var(--teal-lt); border-color: var(--teal); color: var(--teal); transform: translateY(-1px); }
+.btn-secondary:hover { background: var(--mist); }
 
 .btn-ghost {
   background: transparent;
@@ -224,9 +220,7 @@ a:hover { color: var(--ledger-lt); }
   border: 1px solid var(--mist);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--mist-dark); }
 .card-body { padding: 1.25rem; }
 
 /* ── Dividers ── */

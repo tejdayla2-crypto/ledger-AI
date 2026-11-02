@@ -4,38 +4,18 @@
 
 import axios from 'axios';
 
-function getBaseUrl() {
-  const envUrl = (import.meta.env.VITE_API_URL || '').trim();
-  if (!envUrl) return '/api';
-  const cleanUrl = envUrl.replace(/\/+$/, '');
-  return cleanUrl.endsWith('/api') ? cleanUrl : `${cleanUrl}/api`;
-}
-
 const api = axios.create({
-  baseURL: getBaseUrl(),
-  withCredentials: true,    // Sends cookies (JWT token) with every request
-  timeout: 30000,
+  baseURL: '/api',          // Vite proxy forwards /api → localhost:3001/api
+  withCredentials: true,    // IMPORTANT: sends cookies (JWT token) with every request
+  timeout: 30000,           // 30 seconds timeout
   headers: { 'Content-Type': 'application/json' }
 });
-
-// Request interceptor: attach Bearer token from localStorage for reliable cross-domain requests
-api.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('ledger_token');
-    if (token && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  error => Promise.reject(error)
-);
 
 // Response interceptor: if the server returns 401 (unauthorized), redirect to login
 api.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('ledger_token');
       // Don't redirect if we're already on auth pages
       if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/signup')) {
         window.location.href = '/login';
@@ -45,57 +25,31 @@ api.interceptors.response.use(
   }
 );
 
-/**
- * Safely extracts a user-readable error message from any error
- * Prevents React Minified Error #31 (attempting to render error objects {code, message} in JSX).
- */
-export function formatError(err, fallback = 'Something went wrong. Please try again.') {
-  if (!err) return fallback;
-  if (typeof err === 'string') return err;
+export function formatError(error, fallback = 'Something went wrong. Please try again.') {
+  if (!error) return fallback;
+  if (typeof error === 'string') return error;
 
-  // Server HTTP response
-  if (err.response) {
-    if (err.response.status === 404) {
-      return 'API endpoint not found (404). Please ensure the backend server is running with "cd backend && npm start" on port 3001.';
+  const response = error.response;
+  if (response) {
+    if (response.status === 404) {
+      return 'API endpoint not found. Make sure both the frontend and backend are running.';
     }
-    const dataErr = err.response.data?.error;
-    if (dataErr) {
-      if (typeof dataErr === 'string') return dataErr;
-      if (typeof dataErr === 'object') return dataErr.message || JSON.stringify(dataErr);
+
+    const message = response.data?.error || response.data?.reply || response.data?.message;
+    if (typeof message === 'string') return message;
+    if (message && typeof message === 'object' && typeof message.message === 'string') {
+      return message.message;
     }
-    if (err.response.data?.reply && typeof err.response.data.reply === 'string') {
-      return err.response.data.reply;
-    }
-    if (err.response.status === 502 || err.response.status === 503 || err.response.status === 504) {
-      return 'Cannot reach backend service. Please verify the backend is running on port 3001.';
+    if ([502, 503, 504].includes(response.status)) {
+      return 'The backend or AI service is temporarily unavailable. Please try again.';
     }
   }
 
-  // Network error (e.g. backend server is stopped)
-  if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-    return 'Cannot reach the backend server. Start it by running "cd backend && npm start".';
+  if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+    return 'Cannot reach the backend server. Run npm run dev from the project root.';
   }
 
-  // Firebase auth specific codes
-  if (err.code && typeof err.code === 'string') {
-    if (err.code === 'auth/popup-closed-by-user') {
-      return 'Sign-in popup was closed before completing.';
-    }
-    if (err.code === 'auth/operation-not-allowed') {
-      return 'Google Sign-In is not enabled yet in Firebase Console. Go to Authentication -> Sign-in method and enable Google.';
-    }
-    if (err.code === 'auth/unauthorized-domain') {
-      return 'This domain is not authorized in Firebase Console. Add your domain to Authentication -> Settings -> Authorized domains.';
-    }
-    if (err.code === 'auth/invalid-api-key') {
-      return 'Invalid Firebase API key in frontend/.env.';
-    }
-  }
-
-  if (err.message && typeof err.message === 'string') {
-    return err.message;
-  }
-
+  if (typeof error.message === 'string') return error.message;
   return fallback;
 }
 

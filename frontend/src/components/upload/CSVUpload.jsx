@@ -1,5 +1,5 @@
 // src/components/upload/CSVUpload.jsx
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import Papa from 'papaparse';
 import api from '../../lib/api';
 
@@ -8,12 +8,6 @@ export default function CSVUpload({ onClose, onImported }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const fileRef = useRef(null);
-
-  useEffect(() => {
-    const handleEscape = (event) => event.key === 'Escape' && onClose();
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -76,26 +70,17 @@ export default function CSVUpload({ onClose, onImported }) {
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-content fade-in" role="dialog" aria-modal="true" aria-labelledby="csv-modal-title">
+      <div className="modal-content fade-in">
         <div className="modal-header">
-          <h2 id="csv-modal-title">Import CSV</h2>
-          <button className="btn-icon btn-ghost" onClick={onClose} aria-label="Close CSV import">×</button>
+          <h2>Import CSV</h2>
+          <button className="btn-icon btn-ghost" onClick={onClose}>×</button>
         </div>
         
         <div className="modal-body">
           {error && <div className="form-global-error" style={{marginBottom:'1rem'}}>{error}</div>}
 
           {!preview ? (
-            <div
-              className="upload-zone"
-              role="button"
-              tabIndex="0"
-              onClick={() => fileRef.current?.click()}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') fileRef.current?.click();
-              }}
-              aria-label="Select a CSV file"
-            >
+            <div className="upload-zone" onClick={() => fileRef.current?.click()}>
               <h4>Click to select CSV</h4>
               <p>Needs 3 columns: Date, Description, Amount</p>
               <input type="file" accept=".csv" ref={fileRef} onChange={handleFileChange} />

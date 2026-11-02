@@ -110,6 +110,9 @@ function update_expense(userId, args) {
 
   const existing = db.prepare('SELECT * FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NULL').get(expense_id, userId);
   if (!existing) return { error: 'Expense not found.' };
+  if (db.prepare('SELECT 1 FROM business_purchases WHERE expense_id=? AND user_id=?').get(expense_id, userId)) {
+    return { error: 'Inventory purchase expenses are linked to stock and purchase records and cannot be edited independently.' };
+  }
 
   // Save undo data before modifying
   const undoData = {
@@ -167,6 +170,9 @@ function delete_expense(userId, args) {
 
   const existing = db.prepare('SELECT * FROM expenses WHERE id = ? AND user_id = ? AND deleted_at IS NULL').get(expense_id, userId);
   if (!existing) return { error: 'Expense not found.' };
+  if (db.prepare('SELECT 1 FROM business_purchases WHERE expense_id=? AND user_id=?').get(expense_id, userId)) {
+    return { error: 'Inventory purchase expenses are linked to stock and purchase records and cannot be deleted independently.' };
+  }
 
   // Soft delete: we set deleted_at instead of removing the row, so we can undo
   db.prepare(`UPDATE expenses SET deleted_at=datetime('now') WHERE id=? AND user_id=?`).run(expense_id, userId);
@@ -214,6 +220,10 @@ function get_summary(userId, args) {
   const grandTotal = rows.reduce((s, r) => s + r.total, 0);
   const totalCount = rows.reduce((s, r) => s + r.count, 0);
   const topCategory = rows[0]?.category || 'None';
+  const incomeSummary = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) AS total, COUNT(*) AS count FROM income_records
+    WHERE user_id=? AND deleted_at IS NULL AND date >= ? AND date <= ?
+  `).get(userId, start, end);
 
   let forecast = null;
   if (include_forecast && (period === 'this_month' || period === 'last_7_days' || period === 'last_30_days')) {
@@ -237,6 +247,9 @@ function get_summary(userId, args) {
   return {
     period, start, end,
     total: +grandTotal.toFixed(2),
+    income_total: +incomeSummary.total.toFixed(2),
+    income_transaction_count: incomeSummary.count,
+    balance: +(incomeSummary.total - grandTotal).toFixed(2),
     transaction_count: totalCount,
     top_category: topCategory,
     breakdown: rows.map(r => ({ category: r.category, total: +r.total.toFixed(2), count: r.count })),
@@ -394,6 +407,129 @@ function get_recurring_patterns(userId) {
   return { patterns };
 }
 
+function get_business_overview(userId, args = {}) {
+  const db = getDb();
+  const period = ['today', 'this_week', 'this_month', 'last_month', 'last_7_days', 'last_30_days', 'all_time'].includes(args.period)
+    ? args.period
+    : 'this_month';
+  const start = periodStart(period);
+  const end = periodEnd(period);
+  const sales = db.prepare(`
+    SELECT COALESCE(SUM(total),0) AS total, COUNT(*) AS count,
+      COALESCE(SUM(total-amount_paid),0) AS pending_amount
+    FROM business_sales WHERE user_id=? AND date BETWEEN ? AND ?
+  `).get(userId, start, end);
+  const purchases = db.prepare(`
+    SELECT COALESCE(SUM(total),0) AS total, COUNT(*) AS count
+    FROM business_purchases WHERE user_id=? AND date BETWEEN ? AND ?
+  `).get(userId, start, end);
+  const expenses = db.prepare(`
+    SELECT COALESCE(SUM(amount),0) AS total, COUNT(*) AS count
+    FROM expenses WHERE user_id=? AND deleted_at IS NULL AND date BETWEEN ? AND ?
+  `).get(userId, start, end);
+  const inventory = db.prepare(`
+    SELECT COUNT(*) AS products, COALESCE(SUM(quantity),0) AS available_units,
+      COALESCE(SUM(quantity*cost_price),0) AS stock_value,
+      COALESCE(SUM(CASE WHEN quantity <= reorder_level THEN 1 ELSE 0 END),0) AS low_stock_count
+    FROM inventory_products WHERE user_id=?
+  `).get(userId);
+  const lowStock = db.prepare(`
+    SELECT name, quantity, unit, reorder_level FROM inventory_products
+    WHERE user_id=? AND quantity <= reorder_level ORDER BY quantity, name COLLATE NOCASE LIMIT 10
+  `).all(userId);
+  const receivables = db.prepare(`
+    SELECT COALESCE(SUM(total-amount_paid),0) AS pending_amount,
+      COALESCE(SUM(CASE WHEN total > amount_paid THEN 1 ELSE 0 END),0) AS pending_invoices
+    FROM business_sales WHERE user_id=?
+  `).get(userId);
+  return {
+    period: { name: period, from: start, to: end },
+    sales: { total: sales.total, transactions: sales.count, pending_customer_balance: sales.pending_amount },
+    purchases: { total: purchases.total, transactions: purchases.count },
+    expenses: { total: expenses.total, entries: expenses.count },
+    estimated_net_profit: sales.total - expenses.total,
+    inventory: { ...inventory, low_stock: lowStock },
+    customer_receivables: receivables
+  };
+}
+
+function get_inventory_status(userId, args = {}) {
+  const db = getDb();
+  const conditions = ['p.user_id=?'];
+  const params = [userId];
+  if (args.low_stock_only === true) conditions.push('p.quantity <= p.reorder_level');
+  const query = typeof args.query === 'string' ? args.query.trim().slice(0, 100) : '';
+  if (query) {
+    conditions.push('(p.name LIKE ? OR p.sku LIKE ? OR c.name LIKE ? OR s.name LIKE ?)');
+    const match = `%${query}%`;
+    params.push(match, match, match, match);
+  }
+  const products = db.prepare(`
+    SELECT p.name, p.sku, p.quantity, p.unit, p.reorder_level, p.cost_price, p.selling_price,
+      c.name AS category, s.name AS supplier, p.quantity <= p.reorder_level AS low_stock,
+      COALESCE((SELECT SUM(i.quantity) FROM business_purchase_items i
+        JOIN business_purchases purchase ON purchase.id=i.purchase_id
+        WHERE i.product_id=p.id AND purchase.user_id=p.user_id), 0) AS lifetime_purchased_quantity,
+      (SELECT purchase.date FROM business_purchase_items i
+        JOIN business_purchases purchase ON purchase.id=i.purchase_id
+        WHERE i.product_id=p.id AND purchase.user_id=p.user_id
+        ORDER BY purchase.date DESC, purchase.created_at DESC LIMIT 1) AS last_purchase_date,
+      (SELECT i.unit_cost FROM business_purchase_items i
+        JOIN business_purchases purchase ON purchase.id=i.purchase_id
+        WHERE i.product_id=p.id AND purchase.user_id=p.user_id
+        ORDER BY purchase.date DESC, purchase.created_at DESC LIMIT 1) AS last_purchase_unit_cost
+    FROM inventory_products p
+    LEFT JOIN inventory_categories c ON c.id=p.category_id AND c.user_id=p.user_id
+    LEFT JOIN inventory_suppliers s ON s.id=p.supplier_id AND s.user_id=p.user_id
+    WHERE ${conditions.join(' AND ')} ORDER BY low_stock DESC, p.name COLLATE NOCASE LIMIT 30
+  `).all(...params);
+  return { products, total_returned: products.length, low_stock_only: args.low_stock_only === true };
+}
+
+function get_business_transactions(userId, args = {}) {
+  const db = getDb();
+  const limit = Number.isInteger(args.limit) ? Math.max(1, Math.min(20, args.limit)) : 10;
+  if (args.kind === 'sales') {
+    const sales = db.prepare(`
+      SELECT s.id, s.date, s.total, s.amount_paid, s.total-s.amount_paid AS balance_due,
+        c.name AS customer, (SELECT COUNT(*) FROM business_sale_items i WHERE i.sale_id=s.id) AS item_count
+      FROM business_sales s
+      LEFT JOIN business_customers c ON c.id=s.customer_id AND c.user_id=s.user_id
+      WHERE s.user_id=? ORDER BY s.date DESC, s.created_at DESC LIMIT ?
+    `).all(userId, limit);
+    return { kind: 'sales', transactions: sales };
+  }
+  if (args.kind === 'purchases') {
+    const purchases = db.prepare(`
+      SELECT p.id, p.date, p.total, p.reference, s.name AS supplier,
+        (SELECT COUNT(*) FROM business_purchase_items i WHERE i.purchase_id=p.id) AS item_count
+      FROM business_purchases p
+      LEFT JOIN inventory_suppliers s ON s.id=p.supplier_id AND s.user_id=p.user_id
+      WHERE p.user_id=? ORDER BY p.date DESC, p.created_at DESC LIMIT ?
+    `).all(userId, limit);
+    if (!purchases.length) return { kind: 'purchases', transactions: [] };
+    const purchaseIds = purchases.map(purchase => purchase.id);
+    const items = db.prepare(`
+      SELECT item.purchase_id, item.name, item.quantity, item.unit_cost, item.line_total
+      FROM business_purchase_items item
+      JOIN business_purchases purchase ON purchase.id=item.purchase_id
+      WHERE purchase.user_id=? AND item.purchase_id IN (${purchaseIds.map(() => '?').join(',')})
+      ORDER BY purchase.date DESC, purchase.created_at DESC, item.rowid
+    `).all(userId, ...purchaseIds);
+    const itemsByPurchase = new Map(purchaseIds.map(id => [id, []]));
+    for (const item of items) itemsByPurchase.get(item.purchase_id).push(item);
+    return {
+      kind: 'purchases',
+      transactions: purchases.map(({ id, ...purchase }) => ({
+        id,
+        ...purchase,
+        items: itemsByPurchase.get(id)
+      }))
+    };
+  }
+  return { error: 'Choose sales or purchases.' };
+}
+
 // ─────────────────────────────────────────────
 // Tool: undo_last_action
 // ─────────────────────────────────────────────
@@ -456,9 +592,12 @@ function executeTool(userId, toolName, args) {
     case 'get_budget_status': return get_budget_status(userId, args);
     case 'categorize': return categorize(userId, args);
     case 'get_recurring_patterns': return get_recurring_patterns(userId);
+    case 'get_business_overview': return get_business_overview(userId, args);
+    case 'get_inventory_status': return get_inventory_status(userId, args);
+    case 'get_business_transactions': return get_business_transactions(userId, args);
     case 'undo_last_action': return undo_last_action(userId);
     default: return { error: `Unknown tool: ${toolName}` };
   }
 }
 
-module.exports = { executeTool, checkBudget, categorize, get_summary, get_budget_status };
+module.exports = { executeTool, checkBudget, categorize, get_summary, get_budget_status, get_business_overview, get_inventory_status, get_business_transactions };

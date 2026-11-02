@@ -59,14 +59,10 @@ export default function ChatPanel({ onAction }) {
         onAction();
       }
     } catch (err) {
-      const errorData = err.response?.data;
-      const errorText = errorData?.reply || errorData?.error || errorData?.message;
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'agent',
-        text: errorText || (err.code === 'ERR_NETWORK'
-          ? 'Unable to connect to the Ledger server. Please make sure the backend is running.'
-          : 'Sorry, I ran into an error processing that.'),
+        text: err.response?.data?.reply || "Sorry, I ran into an error processing that.",
         isError: true
       }]);
     } finally {

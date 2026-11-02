@@ -1,6 +1,6 @@
 /* src/pages/Home.css */
 
-.home { min-height: 100vh; background: linear-gradient(145deg, var(--paper) 0%, #F7F7F1 52%, #EAF4F0 100%); }
+.home { min-height: 100vh; background: var(--paper); }
 
 /* ── Navbar ── */
 .home-nav {
@@ -26,9 +26,9 @@
 
 /* ── Hero ── */
 .hero {
-  max-width: 1180px;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: 4.5rem 2rem 5rem;
+  padding: 5rem 2rem 4rem;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 3rem;
@@ -52,19 +52,16 @@
   margin-bottom: 1.25rem;
 }
 .hero h1 {
-  max-width: 650px;
-  font-size: clamp(2.7rem, 5vw, 4.25rem);
   margin-bottom: 1.25rem;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
 }
 .hero h1 em {
   font-style: italic;
   color: var(--ledger);
 }
 .hero-sub {
-  max-width: 560px;
-  font-size: 1rem;
-  line-height: 1.65;
+  font-size: 1.1rem;
+  line-height: 1.7;
   color: var(--ink-muted);
   margin-bottom: 2rem;
 }
@@ -74,16 +71,6 @@
   font-size: 0.8rem;
   color: var(--ink-faint);
 }
-.hero-trust {
-  display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  margin-top: 1.5rem;
-  color: var(--ink-muted);
-  font-size: 0.78rem;
-}
-.hero-trust span { display: inline-flex; align-items: center; gap: 0.45rem; }
-.hero-trust strong { color: var(--coral); font-family: var(--font-mono); font-weight: 500; }
 
 /* ── Chat Preview (hero visual) ── */
 .chat-preview {
@@ -93,9 +80,7 @@
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   position: relative;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
-.chat-preview:hover { transform: translateY(-4px) rotate(0.3deg); box-shadow: 0 14px 32px rgba(28,25,23,0.15); }
 .chat-preview-header {
   background: var(--ledger);
   color: var(--white);
@@ -202,9 +187,7 @@
   border: 1px solid var(--mist);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.step-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--coral); }
 .step-number {
   font-family: var(--font-display);
   font-size: 2.5rem;
@@ -228,9 +211,7 @@
   border: 1px solid var(--mist);
   border-radius: var(--radius-lg);
   background: var(--white);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.feature-item:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--teal); }
 .feature-icon {
   width: 36px; height: 36px;
   background: var(--ledger-tint);
@@ -238,7 +219,6 @@
   display: flex; align-items: center; justify-content: center;
   margin-bottom: 0.85rem;
   font-size: 1rem;
-  color: var(--teal);
 }
 .feature-item h4 { margin-bottom: 0.35rem; }
 .feature-item p { font-size: 0.85rem; }

@@ -67,18 +67,15 @@ export default function TransactionRow({ expense, onAction }) {
       </div>
       
       <div className="tx-cat-wrap" ref={dropdownRef}>
-        <button 
-          type="button"
+        <div 
           className="badge tx-cat" 
-          style={{background: 'var(--paper-warm)', color: 'var(--ink-muted)', border: '1px solid var(--mist)', font: 'inherit'}}
+          style={{background: 'var(--paper-warm)', color: 'var(--ink-muted)', border: '1px solid var(--mist)'}}
           onClick={() => setShowCatDropdown(!showCatDropdown)}
           title={expense.ai_confidence < 0.7 ? "AI is unsure about this category. Click to fix." : "Click to change category"}
-          aria-expanded={showCatDropdown}
-          aria-label={`Change category for ${expense.description}`}
         >
           {expense.category}
           {expense.ai_confidence < 0.7 && <span style={{color:'var(--amber)', marginLeft:'0.3rem'}}>?</span>}
-        </button>
+        </div>
         
         {showCatDropdown && (
           <div className="cat-dropdown fade-in">

@@ -49,12 +49,18 @@ const { seedDatabase } = require('./db/seed');
 const authRoutes = require('./routes/auth');
 const chatRoutes = require('./routes/chat');
 const expenseRoutes = require('./routes/expenses');
+const incomeRoutes = require('./routes/income');
 const summaryRoutes = require('./routes/summary');
+const reportRoutes = require('./routes/reports');
 const budgetRoutes = require('./routes/budgets');
 const importRoutes = require('./routes/import');
+const inventoryRoutes = require('./routes/inventory');
+const businessRoutes = require('./routes/business');
+const aiRoutes = require('./routes/ai');
 
 const { startDigestJob } = require('./jobs/digest');
 const { startRecurringJob } = require('./jobs/recurring');
+const { startMonthlyReportJob } = require('./jobs/monthlyReports');
 
 const app = express();
 app.set('trust proxy', 1); // Trust first proxy (Render / Vercel) for rate limiting and IP headers
@@ -68,6 +74,7 @@ const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
 const chatLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
+const aiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
 const importLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false, validate: { xForwardedForHeader: false } });
 
 // ── MIDDLEWARE ──
@@ -97,9 +104,14 @@ app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/chat', chatLimiter, chatRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/income', incomeRoutes);
 app.use('/api/summary', summaryRoutes);
+app.use('/api/reports', reportRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/import', importLimiter, importRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/business', businessRoutes);
+app.use('/api/ai', aiLimiter, aiRoutes);
 
 // Health check — useful to verify the server is running
 app.get('/api/health', (req, res) => {
@@ -133,6 +145,7 @@ function startServer() {
   // Start background jobs
   startDigestJob();
   startRecurringJob();
+  startMonthlyReportJob();
 
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'YOUR_GEMINI_API_KEY_HERE') {
     console.log('\n⚠️  GEMINI_API_KEY not set in .env — AI chat will show a helpful message.');

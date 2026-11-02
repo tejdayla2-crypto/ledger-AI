@@ -1,0 +1,7 @@
+{
+  "name": "ledger-ai-expense-agent",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.js"
+  }
+}

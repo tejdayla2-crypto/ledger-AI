@@ -71,6 +71,26 @@ function initSchema() {
       updated_at    TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS income_records (
+      id          TEXT PRIMARY KEY,
+      user_id     TEXT NOT NULL REFERENCES users(id),
+      description TEXT NOT NULL,
+      amount      REAL NOT NULL CHECK(amount > 0),
+      category    TEXT NOT NULL DEFAULT 'Other',
+      date        TEXT NOT NULL,
+      deleted_at  TEXT,
+      created_at  TEXT DEFAULT (datetime('now')),
+      updated_at  TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS monthly_report_snapshots (
+      user_id      TEXT NOT NULL REFERENCES users(id),
+      month        TEXT NOT NULL,
+      report_json  TEXT NOT NULL,
+      generated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, month)
+    );
+
     -- BUDGETS TABLE: monthly spending limits per category
     -- e.g. "Food: ₹5000/month"
     CREATE TABLE IF NOT EXISTS budgets (
@@ -81,6 +101,29 @@ function initSchema() {
       created_at    TEXT DEFAULT (datetime('now')),
       updated_at    TEXT DEFAULT (datetime('now')),
       UNIQUE(user_id, category)              -- one budget per category per user
+    );
+
+    CREATE TABLE IF NOT EXISTS budget_alerts (
+      id            TEXT PRIMARY KEY,
+      user_id       TEXT NOT NULL REFERENCES users(id),
+      budget_id     TEXT NOT NULL REFERENCES budgets(id) ON DELETE CASCADE,
+      month         TEXT NOT NULL,
+      threshold     INTEGER NOT NULL,
+      spent         REAL NOT NULL,
+      monthly_limit REAL NOT NULL,
+      created_at    TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, budget_id, month, threshold)
+    );
+
+    CREATE TABLE IF NOT EXISTS receipt_scans (
+      id                   TEXT PRIMARY KEY,
+      user_id              TEXT NOT NULL REFERENCES users(id),
+      image_hash           TEXT NOT NULL,
+      extracted_json       TEXT NOT NULL,
+      status               TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'confirmed')),
+      confirmed_expense_id TEXT REFERENCES expenses(id),
+      created_at           TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, image_hash)
     );
 
     -- CATEGORY_MAPPINGS TABLE: correction memory
@@ -133,11 +176,121 @@ function initSchema() {
       created_at            TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS inventory_categories (
+      id         TEXT PRIMARY KEY,
+      user_id    TEXT NOT NULL REFERENCES users(id),
+      name       TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_suppliers (
+      id         TEXT PRIMARY KEY,
+      user_id    TEXT NOT NULL REFERENCES users(id),
+      name       TEXT NOT NULL,
+      email      TEXT,
+      phone      TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_products (
+      id           TEXT PRIMARY KEY,
+      user_id      TEXT NOT NULL REFERENCES users(id),
+      name         TEXT NOT NULL,
+      sku          TEXT,
+      category_id  TEXT REFERENCES inventory_categories(id) ON DELETE SET NULL,
+      supplier_id  TEXT REFERENCES inventory_suppliers(id) ON DELETE SET NULL,
+      quantity     INTEGER NOT NULL DEFAULT 0 CHECK(quantity >= 0),
+      unit         TEXT NOT NULL DEFAULT 'pcs',
+      cost_price   REAL NOT NULL DEFAULT 0 CHECK(cost_price >= 0),
+      selling_price REAL NOT NULL DEFAULT 0 CHECK(selling_price >= 0),
+      reorder_level INTEGER NOT NULL DEFAULT 5 CHECK(reorder_level >= 0),
+      created_at   TEXT DEFAULT (datetime('now')),
+      updated_at   TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, sku)
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_movements (
+      id         TEXT PRIMARY KEY,
+      user_id    TEXT NOT NULL REFERENCES users(id),
+      product_id TEXT NOT NULL REFERENCES inventory_products(id) ON DELETE RESTRICT,
+      type       TEXT NOT NULL CHECK(type IN ('stock_in', 'stock_out')),
+      quantity   INTEGER NOT NULL CHECK(quantity > 0),
+      note       TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS business_customers (
+      id         TEXT PRIMARY KEY,
+      user_id    TEXT NOT NULL REFERENCES users(id),
+      name       TEXT NOT NULL,
+      email      TEXT,
+      phone      TEXT,
+      address    TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, email)
+    );
+
+    CREATE TABLE IF NOT EXISTS business_sales (
+      id          TEXT PRIMARY KEY,
+      user_id     TEXT NOT NULL REFERENCES users(id),
+      customer_id TEXT REFERENCES business_customers(id) ON DELETE SET NULL,
+      total       REAL NOT NULL CHECK(total >= 0),
+      amount_paid REAL NOT NULL DEFAULT 0 CHECK(amount_paid >= 0 AND amount_paid <= total),
+      date        TEXT NOT NULL,
+      notes       TEXT,
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS business_sale_items (
+      id         TEXT PRIMARY KEY,
+      sale_id    TEXT NOT NULL REFERENCES business_sales(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL REFERENCES inventory_products(id) ON DELETE RESTRICT,
+      name       TEXT NOT NULL,
+      quantity   INTEGER NOT NULL CHECK(quantity > 0),
+      unit_price REAL NOT NULL CHECK(unit_price >= 0),
+      line_total REAL NOT NULL CHECK(line_total >= 0)
+    );
+
+    CREATE TABLE IF NOT EXISTS business_purchases (
+      id          TEXT PRIMARY KEY,
+      user_id     TEXT NOT NULL REFERENCES users(id),
+      supplier_id TEXT REFERENCES inventory_suppliers(id) ON DELETE SET NULL,
+      reference   TEXT,
+      total       REAL NOT NULL CHECK(total >= 0),
+      date        TEXT NOT NULL,
+      notes       TEXT,
+      expense_id  TEXT NOT NULL UNIQUE REFERENCES expenses(id),
+      idempotency_key TEXT,
+      request_hash TEXT,
+      created_at  TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, reference)
+    );
+
+    CREATE TABLE IF NOT EXISTS business_purchase_items (
+      id          TEXT PRIMARY KEY,
+      purchase_id TEXT NOT NULL REFERENCES business_purchases(id) ON DELETE CASCADE,
+      product_id  TEXT NOT NULL REFERENCES inventory_products(id) ON DELETE RESTRICT,
+      name        TEXT NOT NULL,
+      quantity    INTEGER NOT NULL CHECK(quantity > 0),
+      unit_cost   REAL NOT NULL CHECK(unit_cost >= 0),
+      line_total  REAL NOT NULL CHECK(line_total >= 0)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_business_sales_user_date ON business_sales(user_id, date);
+    CREATE INDEX IF NOT EXISTS idx_business_purchases_user_date ON business_purchases(user_id, date);
+    CREATE INDEX IF NOT EXISTS idx_business_customers_user ON business_customers(user_id, name);
     CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_expenses_user_active ON expenses(user_id, deleted_at);
+    CREATE INDEX IF NOT EXISTS idx_income_user_date ON income_records(user_id, date);
     CREATE INDEX IF NOT EXISTS idx_budgets_user_category ON budgets(user_id, category);
+    CREATE INDEX IF NOT EXISTS idx_budget_alerts_user_month ON budget_alerts(user_id, month);
+    CREATE INDEX IF NOT EXISTS idx_receipt_scans_user_created ON receipt_scans(user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_history_user_created ON conversation_history(user_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_action_log_user_created ON action_log(user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_inventory_products_user ON inventory_products(user_id, name);
+    CREATE INDEX IF NOT EXISTS idx_inventory_movements_user_created ON inventory_movements(user_id, created_at);
   `);
 
   try {
@@ -145,6 +298,22 @@ function initSchema() {
   } catch (_) {
     // Column already exists
   }
+  try {
+    db.exec('ALTER TABLE business_sales ADD COLUMN amount_paid REAL NOT NULL DEFAULT 0 CHECK(amount_paid >= 0 AND amount_paid <= total);');
+  } catch (_) {
+    // Column already exists
+  }
+  const purchaseColumns = db.prepare('PRAGMA table_info(business_purchases)').all();
+  if (!purchaseColumns.some(column => column.name === 'idempotency_key')) {
+    db.exec('ALTER TABLE business_purchases ADD COLUMN idempotency_key TEXT;');
+  }
+  if (!purchaseColumns.some(column => column.name === 'request_hash')) {
+    db.exec('ALTER TABLE business_purchases ADD COLUMN request_hash TEXT;');
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_business_purchases_user_idempotency
+    ON business_purchases(user_id, idempotency_key)
+  `);
 }
 
 module.exports = { getDb };

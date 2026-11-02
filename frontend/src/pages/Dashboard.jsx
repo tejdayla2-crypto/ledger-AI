@@ -1,118 +1,77 @@
-// src/pages/Dashboard.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import api from '../lib/api';
 import './Dashboard.css';
 
 import ChatPanel from '../components/chat/ChatPanel';
-import QuickAdd from '../components/expenses/QuickAdd';
-import TransactionList from '../components/expenses/TransactionList';
-import StatCard from '../components/dashboard/StatCard';
-import CategoryChart from '../components/dashboard/CategoryChart';
-import SpendChart from '../components/dashboard/SpendChart';
-import BudgetPanel from '../components/dashboard/BudgetPanel';
-import CSVUpload from '../components/upload/CSVUpload';
+import AIFeatures from '../components/dashboard/AIFeatures';
+import ExpenseDashboard from './ExpenseDashboard';
+
+const DASHBOARD_VIEWS = [
+  { id: 'dashboard', label: 'Overview', group: 'Finance' },
+  { id: 'transactions', label: 'Transactions', group: 'Finance' },
+  { id: 'income', label: 'Income', group: 'Finance' },
+  { id: 'reports', label: 'Monthly Reports', group: 'Finance' },
+  { id: 'assistant', label: 'AI Analysis', group: 'Finance' },
+  { id: 'voice', label: 'Voice Assistance', group: 'AI Features' },
+  { id: 'budget', label: 'Budget Management', group: 'AI Features' },
+  { id: 'prediction', label: 'Expense Prediction', group: 'AI Features' }
+];
+
+const AI_VIEW_IDS = new Set(['voice', 'budget', 'prediction']);
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
-  const [summary, setSummary] = useState(null);
-  const [expenses, setExpenses] = useState([]);
-  const [showUpload, setShowUpload] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [dashboardError, setDashboardError] = useState('');
-  const [dashboardLoading, setDashboardLoading] = useState(true);
-
-  // Function to force refresh of all dashboard data (called by Chat or QuickAdd after an action)
-  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
-
-  useEffect(() => {
-    let active = true;
-    setDashboardLoading(true);
-    setDashboardError('');
-    Promise.all([
-      api.get('/summary?period=this_month&forecast=true'),
-      api.get('/expenses?limit=10')
-    ]).then(([summaryResponse, expensesResponse]) => {
-      if (!active) return;
-      setSummary(summaryResponse.data);
-      setExpenses(expensesResponse.data.expenses);
-    }).catch(() => {
-      if (active) setDashboardError('Dashboard data could not be loaded. Check your connection and try again.');
-    }).finally(() => {
-      if (active) setDashboardLoading(false);
-    });
-    return () => { active = false; };
-  }, [refreshTrigger]);
+  const { logout } = useAuth();
+  const [activeView, setActiveView] = useState('dashboard');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const active = DASHBOARD_VIEWS.find(view => view.id === activeView) || DASHBOARD_VIEWS[0];
+  const refresh = () => setRefreshKey(previous => previous + 1);
 
   return (
     <div className="dashboard-layout">
-      {/* Left Sidebar: Chat Agent */}
-      <div className="chat-sidebar">
-        <ChatPanel onAction={triggerRefresh} />
-      </div>
+      <aside className="chat-sidebar" aria-label="Ledger AI assistant">
+        <ChatPanel onAction={refresh} />
+      </aside>
 
-      {/* Right Main Area: Traditional Dashboard */}
-      <div className="dashboard-main fade-in">
-        {dashboardError && (
-          <div className="dashboard-error" role="alert">
-            <span>{dashboardError}</span>
-            <button className="btn btn-secondary btn-sm" onClick={triggerRefresh}>Retry</button>
-          </div>
-        )}
-        <header className="dashboard-header">
+      <main className="dashboard-main fade-in">
+        <header className="dashboard-header ledger-ai-header">
           <div>
-            <h1>Overview</h1>
-            <p style={{marginTop:'0.25rem'}}>Welcome back, {user?.email}</p>
+            <h1>{active.label}</h1>
+            <p className="ledger-ai-welcome">Your Ledger AI expense assistant</p>
           </div>
           <div className="dashboard-actions">
-            <button className="btn btn-secondary btn-sm" onClick={() => setShowUpload(true)}>Upload CSV</button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm ledger-ai-mic"
+              onClick={() => setActiveView('voice')}
+              aria-label="Open Voice Assistance"
+            >
+              <span aria-hidden="true">🎙</span> Voice
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={logout}>Log out</button>
           </div>
         </header>
 
-        <div className="dashboard-top-widgets">
-          <QuickAdd onAdded={triggerRefresh} />
-          
-          <div className="stats-grid">
-            <StatCard 
-              label="Spent this month" 
-              value={dashboardLoading ? '...' : summary?.total} 
-              subtext={`${summary?.transaction_count || 0} transactions`} 
-            />
-            <StatCard 
-              label="Top Category" 
-              value={summary?.top_category === 'None' ? '—' : summary?.top_category} 
-              subtext={summary?.top_category !== 'None' ? `₹${summary?.breakdown?.[0]?.total.toLocaleString('en-IN')}` : ''}
-              isTextValue 
-            />
-            <StatCard 
-              label="Forecast (Month End)" 
-              value={summary?.forecast?.projected_monthly} 
-              subtext={summary?.forecast ? `₹${summary.forecast.daily_rate}/day avg` : 'Not enough data'} 
-            />
-          </div>
-        </div>
+        <nav className="dashboard-view-nav ledger-ai-nav" aria-label="Ledger AI finance features">
+          {DASHBOARD_VIEWS.map((view, index) => (
+            <span className="ledger-ai-nav-item" key={view.id}>
+              {index > 0 && view.group !== DASHBOARD_VIEWS[index - 1].group &&
+                <span className="ledger-ai-nav-divider" aria-hidden="true" />}
+              <button
+                type="button"
+                className={activeView === view.id ? 'active' : ''}
+                aria-current={activeView === view.id ? 'page' : undefined}
+                onClick={() => setActiveView(view.id)}
+              >
+                {view.label}
+              </button>
+            </span>
+          ))}
+        </nav>
 
-        <div className="dashboard-charts">
-          <CategoryChart data={summary?.breakdown || []} />
-          <SpendChart period="this_month" refreshTrigger={refreshTrigger} />
-        </div>
-
-        <div className="dashboard-bottom">
-          <TransactionList expenses={expenses} onAction={triggerRefresh} />
-          <BudgetPanel refreshTrigger={refreshTrigger} />
-        </div>
-      </div>
-
-      {showUpload && (
-        <CSVUpload 
-          onClose={() => setShowUpload(false)} 
-          onImported={() => {
-            setShowUpload(false);
-            triggerRefresh();
-          }} 
-        />
-      )}
+        {AI_VIEW_IDS.has(activeView)
+          ? <AIFeatures view={activeView} refreshKey={refreshKey} onAction={refresh} />
+          : <ExpenseDashboard view={activeView} refreshKey={refreshKey} onAction={refresh} />}
+      </main>
     </div>
   );
 }

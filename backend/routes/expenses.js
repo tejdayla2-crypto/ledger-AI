@@ -34,7 +34,9 @@ router.get('/', requireAuth, (req, res) => {
   const { category, from, to, sort = 'date', order = 'DESC', limit = 100, offset = 0 } = req.query;
 
   let query = `SELECT id, description, amount, full_amount, split_count, split_note,
-    category, date, ai_confidence, created_at
+    category, date, ai_confidence, created_at,
+    (SELECT purchase.id FROM business_purchases purchase
+      WHERE purchase.expense_id=expenses.id AND purchase.user_id=expenses.user_id LIMIT 1) AS purchase_id
     FROM expenses WHERE user_id=? AND deleted_at IS NULL`;
   const params = [req.user.id];
 
@@ -87,6 +89,12 @@ router.post('/', requireAuth, (req, res) => {
 
 // PUT /api/expenses/:id — update an expense
 router.put('/:id', requireAuth, (req, res) => {
+  const purchaseExpense = getDb().prepare(
+    'SELECT 1 FROM business_purchases WHERE expense_id=? AND user_id=?'
+  ).get(req.params.id, req.user.id);
+  if (purchaseExpense) {
+    return res.status(409).json({ error: 'Inventory purchase expenses are linked to stock and purchase records and cannot be edited independently.' });
+  }
   const validationError = validateExpense({
     description: req.body.description || 'valid',
     amount: req.body.amount === undefined ? 1 : req.body.amount,
@@ -104,6 +112,12 @@ router.put('/:id', requireAuth, (req, res) => {
 
 // DELETE /api/expenses/:id
 router.delete('/:id', requireAuth, (req, res) => {
+  const purchaseExpense = getDb().prepare(
+    'SELECT 1 FROM business_purchases WHERE expense_id=? AND user_id=?'
+  ).get(req.params.id, req.user.id);
+  if (purchaseExpense) {
+    return res.status(409).json({ error: 'Inventory purchase expenses are linked to stock and purchase records and cannot be deleted independently.' });
+  }
   const result = executeTool(req.user.id, 'delete_expense', { expense_id: req.params.id });
   if (result.error) return res.status(404).json(result);
   res.json(result);

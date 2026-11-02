@@ -30,15 +30,17 @@ export default function Home() {
       <section className="hero">
         <div className="hero-content fade-in">
           <div className="hero-eyebrow">
-            <span>●</span> Personal finance, with a capable assistant
+            <span>●</span> AI-powered · Actually works
           </div>
           <h1>
-            A clearer view<br />
-            of your <em>money.</em>
+            Your money,<br />
+            <em>managed by an agent</em><br />
+            that actually acts.
           </h1>
           <p className="hero-sub">
-            Ledger brings expenses, budgets, and spending insights into one focused workspace.
-            Log transactions naturally, ask questions in plain English, and stay close to the numbers.
+            Tell Ledger what you spent in plain English. It logs it, categorises it,
+            tracks your budgets — and answers any question about your money with real numbers,
+            not guesses.
           </p>
           <div className="hero-cta">
             <Link to="/signup" className="btn btn-primary btn-lg">Start for free</Link>
@@ -46,10 +48,7 @@ export default function Home() {
               Demo: demo@ledger.app / demo1234
             </Link>
           </div>
-          <div className="hero-trust">
-            <span><strong>01</strong> Real-time expense tracking</span>
-            <span><strong>02</strong> Private account data</span>
-          </div>
+          <p className="hero-demo-note">No credit card. No setup. Demo account available.</p>
         </div>
 
         <div className="hero-visual fade-in">

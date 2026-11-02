@@ -3,7 +3,8 @@
 
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
-const { get_summary, get_budget_status } = require('../agent/executor');
+const { get_summary } = require('../agent/executor');
+const { getBudgetStatus } = require('../lib/budgetAlerts');
 
 const router = express.Router();
 
@@ -20,8 +21,7 @@ router.get('/', requireAuth, (req, res) => {
 
 // GET /api/summary/budgets
 router.get('/budgets', requireAuth, (req, res) => {
-  const result = get_budget_status(req.user.id, {});
-  res.json(result);
+  res.json(getBudgetStatus(req.user.id));
 });
 
 module.exports = router;

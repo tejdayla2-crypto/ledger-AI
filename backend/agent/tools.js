@@ -138,6 +138,43 @@ const TOOL_DEFINITIONS = [
     parameters: { type: 'object', properties: {} }
   },
   {
+    name: 'get_business_overview',
+    description: 'Read the user’s real business dashboard metrics for a period: sales, purchases, expenses, estimated net profit, inventory value, available units, low-stock items, and unpaid customer balances. Use for business performance or finance questions. This tool does not change data.',
+    parameters: {
+      type: 'object',
+      properties: {
+        period: {
+          type: 'string',
+          enum: ['today', 'this_week', 'this_month', 'last_month', 'last_7_days', 'last_30_days', 'all_time'],
+          description: 'Time period for sales, purchases, expenses, and estimated profit.'
+        }
+      }
+    }
+  },
+  {
+    name: 'get_inventory_status',
+    description: 'Read the user’s actual product quantities, categories, prices, suppliers, reorder levels, and recorded per-product purchase quantities and most recent unit costs. Use for stock availability, purchase history, and restocking questions. This tool does not change data.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Optional product/category/supplier search phrase.' },
+        low_stock_only: { type: 'boolean', description: 'Return only products at or below their reorder level.' }
+      }
+    }
+  },
+  {
+    name: 'get_business_transactions',
+    description: 'Read real sales or purchase records, including customer or supplier, amount, date, purchased product quantities, and unit costs. Use for transaction and purchase-history questions. This tool does not change data.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['sales', 'purchases'], description: 'Which business transaction history to retrieve.' },
+        limit: { type: 'number', description: 'Maximum number of recent transactions, from 1 to 20.' }
+      },
+      required: ['kind']
+    }
+  },
+  {
     name: 'undo_last_action',
     description: 'Undo the most recent action (add/edit/delete) the agent performed.',
     parameters: { type: 'object', properties: {} }
